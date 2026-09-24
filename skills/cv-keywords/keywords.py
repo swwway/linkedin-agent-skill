@@ -38,7 +38,7 @@ SEGMENT = re.compile(r"[\n\r,;:!?()\[\]{}|•·●▪◦\"“”«»]+|\.(?=\s|$
 CONTRACTION = re.compile(r"(\w)['’](?:ll|re|ve|s|d|m|t)\b", re.IGNORECASE)
 URL = re.compile(r"https?://\S+|www\.\S+")
 MIDDLE_OK = {"of", "on", "to", "and"}   # ruby on rails, attention to detail, profit and loss
-NUMERIC = re.compile(r"^\d[\d+.,%x]*$")
+NUMERIC = re.compile(r"^\d[\d+.,%x/-]*$")   # 5, 3+, 2026-09-24, 01/2027
 CYRILLIC = re.compile("[а-я]")
 
 RU_ENDINGS = sorted("""
@@ -103,6 +103,18 @@ def read_text(path):
                          for p in root.iter(W + "p"))
     with open(path, encoding="utf-8", errors="replace") as f:
         return f.read()
+
+
+RULE_LINE = re.compile(r"^\s*[-=_*#]{3,}.*$")      # ----- FULL POSTING TEXT -----
+HEADER_LINE = re.compile(r"^\s*[A-Z][\w /&()'-]{1,40}:(\s.*)?$")
+
+
+def strip_header(text, depth=15):
+    """Drop 'Label: value' lines at the top of a saved posting (title, salary,
+    closing date, provider...). They describe the file, not the job."""
+    lines = text.splitlines()
+    head = [l for l in lines[:depth] if not (HEADER_LINE.match(l) or RULE_LINE.match(l))]
+    return "\n".join(head + lines[depth:])
 
 
 def expand(paths):
@@ -269,7 +281,7 @@ def main():
     if not files:
         sys.exit("keywords: no job description files found")
     stop, boiler_single, boiler_multi, soft = load_terms(args.terms)
-    texts = [read_text(f) for f in files]
+    texts = [strip_header(read_text(f)) for f in files]
     cands, min_df = mine(texts, stop, boiler_single, boiler_multi, soft)
     ranked = sorted(cands.items(), key=lambda kv: (-kv[1]["df"], -kv[1]["tf"], -len(kv[0])))
     # a single ordinary word ("process", "business") is context, not a keyword on
