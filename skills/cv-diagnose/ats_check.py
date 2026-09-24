@@ -122,14 +122,16 @@ INVISIBLE = re.compile("[​-‏⁠-⁤﻿­]")
 # ------------------------------------------------------------------- reading
 
 def _para_text(p):
+    # only run content: w:tab inside w:pPr/w:tabs is a tab-stop definition, not text
     parts = []
-    for node in p.iter():
-        if node.tag == W + "t" and node.text:
-            parts.append(node.text)
-        elif node.tag == W + "tab":
-            parts.append("\t")
-        elif node.tag in (W + "br", W + "cr"):
-            parts.append("\n")
+    for run in p.iter(W + "r"):
+        for node in run:
+            if node.tag == W + "t" and node.text:
+                parts.append(node.text)
+            elif node.tag == W + "tab":
+                parts.append("\t")
+            elif node.tag in (W + "br", W + "cr"):
+                parts.append("\n")
     return "".join(parts)
 
 
