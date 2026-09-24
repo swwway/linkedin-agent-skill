@@ -13,7 +13,12 @@ the em dashes, the slop vocabulary and the invisible watermark characters out
 of a draft, then scores what is left against a five-check detection panel
 before you ever see it.
 
-**Nothing gets posted until you say yes.** These skills write. You post.
+Four more run the job hunt: diagnose the resume the way an ATS reads it,
+count the keywords real postings repeat, rewrite the bullets without
+inventing a number, and sit a mock interview with the hiring manager.
+
+**Nothing gets posted or sent until you say yes.** These skills write. You
+post, and you apply.
 
 ## Install
 
@@ -29,7 +34,7 @@ Or do it yourself, in Claude Code:
 
 ```bash
 git clone https://github.com/Jakeschincariol/linkedin-agent-skill.git
-cp -r linkedin-agent-skill/skills/li-* ~/.claude/skills/
+cp -r linkedin-agent-skill/skills/li-* linkedin-agent-skill/skills/cv-* ~/.claude/skills/
 ```
 
 Or as a plugin:
@@ -49,6 +54,10 @@ Then spend ten minutes on `templates/voice.md`. Copy it to
 into Claude and say "write my voice.md from these". Every skill reads that
 file. Skip it and everything comes out sounding like everyone else.
 
+For the job-hunt skills, do the same with `templates/career.md`: copy it to
+`~/.claude/linkedin/career.md` and put the base resume path, the target role
+and the never-list in it.
+
 ## The eleven
 
 | command | what it does |
@@ -64,6 +73,31 @@ file. Skip it and everything comes out sounding like everyone else.
 | `/li-dm` | The 200-character invite note, the first message, and the two follow-ups. Two. |
 | `/li-inbox` | Triages the inbox into lead / recruiter / peer / ask / spam, and tells you which tell gave the sequence away. |
 | `/li-audit` | Post-mortem on what you have already published. Ranks by engagement rate and reach multiple, not impressions. |
+
+## The job hunt
+
+Run them in this order. Each one feeds the next.
+
+| command | what it does |
+| --- | --- |
+| `/cv-diagnose` | Reads the resume the way a parser does. Tables, text boxes, columns, header contact lines, broken glyphs, mixed dates, bullets with no number. Then the top 5 fixes by impact. |
+| `/cv-keywords` | Counts the terms real job descriptions for the role repeat, and marks each one in the resume as ok, skills-only, buried or missing. |
+| `/cv-rewrite` | X-Y-Z bullets, a tailored copy per job, a provenance table tracing every bullet to its source, and a placeholder wherever a number is missing. |
+| `/cv-interview` | Mock interview as the hiring manager. One question at a time, scored out of 10, then a hireability breakdown and a study plan. |
+
+Two of them ship scripts, dependency-free like the humanizer:
+
+```bash
+python3 ats_check.py resume.docx --never "term"      # parser killers + scan problems
+python3 ats_check.py resume.docx --text              # what the ATS actually reads
+python3 keywords.py --resume cv.docx jobs/frontend/  # keyword demand vs your resume
+```
+
+`keywords.py` counts over the postings you give it and says how many that
+was. It is not a survey of "1,000 job descriptions", and neither skill will
+pretend to be one. `cv-rewrite` never estimates a number: a missing one comes
+back as `{{number: what to count}}` and a question, because an invented
+metric is the thing a reference check finds.
 
 ## The humanizer
 
@@ -164,13 +198,21 @@ skills/li-human/slop.json        the lexicon: 113 terms, 17 invisible classes, 1
 skills/li-human/humanize.py      the three cleaning passes
 skills/li-human/detect.py        the five-check panel
 skills/li-profile/rubric.json    the 100-point profile score
+skills/cv-diagnose/ats_check.py  parser and recruiter-scan checks for .docx, .pdf, .md, .txt
+skills/cv-keywords/keywords.py   keyword demand across job descriptions vs the resume
+skills/cv-keywords/terms.json    stopwords, job-post boilerplate, soft skills. Edit it.
 templates/voice.md               your voice profile. Fill this in first.
+templates/career.md              base resume, target, never-list, proof. For the cv-* skills.
 ```
 
 ## Credit
 
 Made by Jake Schincariol, [opusjake.ai](https://opusjake.ai).
 The full write-up is at [opusjake.ai/r/linkedin-agent](https://opusjake.ai/r/linkedin-agent).
+
+The job-hunt loop (diagnose, score, rewrite, prep) follows Cindy's "4 Claude
+skills that make your resume unrejectable". The scripts and the
+no-fabrication rules are added here.
 
 ## License
 
