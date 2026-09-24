@@ -35,6 +35,7 @@ W = "{http://schemas.openxmlformats.org/wordprocessingml/2006/main}"
 
 TOKEN = re.compile(r"[^\W_][\w+#]*(?:[./&-][\w+#]+)*[+#]*")
 SEGMENT = re.compile(r"[\n\r,;:!?()\[\]{}|•·●▪◦\"“”«»]+|\.(?=\s|$)|\s[-–—]\s|\t")
+CONTRACTION = re.compile(r"(\w)['’](?:ll|re|ve|s|d|m|t)\b", re.IGNORECASE)
 URL = re.compile(r"https?://\S+|www\.\S+")
 MIDDLE_OK = {"of", "on", "to", "and"}   # ruby on rails, attention to detail, profit and loss
 NUMERIC = re.compile(r"^\d[\d+.,%x]*$")
@@ -123,6 +124,7 @@ META = re.compile(r"^\s*(source|url|title|company|location|salary|posted|date po
 def segments(text):
     text = META.sub(" ", text)
     text = URL.sub(" ", text)
+    text = CONTRACTION.sub(r"\1", text)   # you'll -> you, not "you" + "ll"
     for seg in SEGMENT.split(text):
         toks = [t.rstrip(".-/&") for t in TOKEN.findall(seg)]
         toks = [t for t in toks if t]
