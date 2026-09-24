@@ -115,7 +115,13 @@ def expand(paths):
     return out
 
 
+META = re.compile(r"^\s*(source|url|title|company|location|salary|posted|date posted|"
+                  r"employment type|job type|contract type|seniority level|job function|"
+                  r"industries|closing date|reference|ref)\s*:.*$", re.IGNORECASE | re.MULTILINE)
+
+
 def segments(text):
+    text = META.sub(" ", text)
     text = URL.sub(" ", text)
     for seg in SEGMENT.split(text):
         toks = [t.rstrip(".-/&") for t in TOKEN.findall(seg)]
@@ -136,10 +142,11 @@ def grams(toks, stop, boiler_single, boiler_multi):
             first, last = key[0], key[-1]
             if first in stop or last in stop:
                 continue
-            if n == 2 and (first in boiler_single or last in boiler_single):
+            # a phrase carrying job-post filler ("strong communication skills",
+            # "equal opportunities employer") is filler, not a keyword
+            if n > 1 and any(k in boiler_single for k in key):
                 continue
-            if n == 3 and key[1] in stop and (key[1] not in MIDDLE_OK or first in
-                                               boiler_single or last in boiler_single):
+            if n == 3 and key[1] in stop and key[1] not in MIDDLE_OK:
                 continue
             if any(NUMERIC.match(k) for k in key) or any(len(k) < 2 and k not in ("c", "r")
                                                          for k in key):
@@ -263,7 +270,12 @@ def main():
     texts = [read_text(f) for f in files]
     cands, min_df = mine(texts, stop, boiler_single, boiler_multi, soft)
     ranked = sorted(cands.items(), key=lambda kv: (-kv[1]["df"], -kv[1]["tf"], -len(kv[0])))
-    shown = ranked[: args.top]
+    # a single ordinary word ("process", "business") is context, not a keyword on
+    # its own; phrases, named tools and soft skills are what gets searched for
+    strong = [kv for kv in ranked if len(kv[0]) > 1 or kv[1]["kind"] != "term"]
+    words = [kv for kv in ranked if len(kv[0]) == 1 and kv[1]["kind"] == "term"]
+    shown = strong[: args.top]
+    shown_words = words[: max(5, args.top // 3)]
 
     rows, total = (index_resume(read_text(args.resume)) if args.resume else ([], 0))
     for key, c in shown:
@@ -272,14 +284,18 @@ def main():
 
     n = len(files)
     if args.json:
+        for key, c in shown_words:
+            if args.resume:
+                c["status"], c["where"] = status(locate(key, rows), total)
         print(json.dumps({"job_descriptions": n, "files": files, "min_df": min_df,
                           "candidates": len(cands),
-                          "terms": [dict(c) for _, c in shown]},
+                          "terms": [dict(c) for _, c in shown],
+                          "single_words": [dict(c) for _, c in shown_words]},
                          ensure_ascii=False, indent=2))
         return
 
     print(f"KEYWORDS  {n} job description(s), {len(cands)} terms in >= {min_df} of them, "
-          f"top {len(shown)} shown")
+          f"top {len(shown)} phrases and named terms shown")
     if n < 3:
         print("          under 3 postings: this is one company's wishlist, not the market")
     if args.resume:
@@ -293,6 +309,20 @@ def main():
         if args.resume:
             line += f" {c['status']:<8}{c['where']}"
         print(line.rstrip())
+
+    if shown_words:
+        print()
+        print("  single words (context, not keywords on their own):")
+        line = []
+        for key, c in shown_words:
+            mark = ""
+            if args.resume:
+                c["status"], c["where"] = status(locate(key, rows), total)
+                mark = "" if c["status"] == "ok" else "*"
+            line.append(f"{c['term']}{mark} {c['df']}/{n}")
+        print("  " + ", ".join(line))
+        if args.resume:
+            print("  (* = not proven in the resume)")
 
     if args.resume and shown:
         weight = sum(c["df"] for _, c in shown)
