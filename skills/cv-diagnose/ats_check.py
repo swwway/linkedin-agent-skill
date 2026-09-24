@@ -354,7 +354,12 @@ def check(kind, lines, layout, never):
             "two-page window)")
 
     # bullets
-    bullets = [(n, BULLET.sub("", l)) for n, l in numbered if BULLET.match(l)]
+    # skills and language lists are not achievement bullets
+    section, bullets = None, []
+    for n, l in numbered:
+        section = heading_key(l) or section
+        if BULLET.match(l) and section not in ("skills", "languages", "certifications"):
+            bullets.append((n, BULLET.sub("", l)))
     if not bullets:
         add("WARN", "bullets", "no bullet lines detected - if the source has bullets they "
             "were lost in the paste; if not, experience written as paragraphs scans badly")
